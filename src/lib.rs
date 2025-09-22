@@ -39,33 +39,24 @@ pub struct Word {
 
 impl<'source> pyo3::FromPyObject<'source> for Word {
     fn extract_bound(ob: &Bound<'source, PyAny>) -> PyResult<Self> {
-        let tuple = ob.downcast::<pyo3::types::PyDict>()?;
-        if tuple.len() != 4 {
-            return Err(pyo3::exceptions::PyValueError::new_err(
-                "Expected tuple of length 4 for Word",
-            ));
-        }
+        let dict = ob.downcast::<pyo3::types::PyAny>()?;
 
         Ok(Word {
-            start: tuple
-                .get_item("start")
+            start: dict
+                .getattr("start")
                 .expect("start field should exist")
-                .unwrap()
                 .extract()?,
-            end: tuple
-                .get_item("end")
+            end: dict
+                .getattr("end")
                 .expect("end field should exist")
-                .unwrap()
                 .extract()?,
-            word: tuple
-                .get_item("word")
+            word: dict
+                .getattr("word")
                 .expect("word field should exist")
-                .unwrap()
                 .extract()?,
-            probability: tuple
-                .get_item("probability")
+            probability: dict
+                .getattr("probability")
                 .expect("probability field should exist")
-                .unwrap()
                 .extract()?,
         })
     }

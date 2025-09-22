@@ -26,6 +26,33 @@ pub struct Segment {
     pub avg_logprob: f32,
     pub compression_ratio: f32,
     pub no_speech_prob: f32,
+    pub words: Option<Vec<Word>>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Word {
+    pub start: f32,
+    pub end: f32,
+    pub word: String,
+    pub probability: f32,
+}
+
+impl<'source> pyo3::FromPyObject<'source> for Word {
+    fn extract_bound(ob: &Bound<'source, PyAny>) -> PyResult<Self> {
+        let tuple = ob.downcast::<pyo3::types::PyTuple>()?;
+        if tuple.len() != 4 {
+            return Err(pyo3::exceptions::PyValueError::new_err(
+                "Expected tuple of length 4 for Word",
+            ));
+        }
+
+        Ok(Word {
+            start: tuple.get_item(0)?.extract()?,
+            end: tuple.get_item(1)?.extract()?,
+            word: tuple.get_item(2)?.extract()?,
+            probability: tuple.get_item(3)?.extract()?,
+        })
+    }
 }
 
 #[derive(Clone)]
@@ -109,7 +136,18 @@ impl WhisperTranscriber {
             let pysegments = activators
                 .getattr("transcribe_audio")?
                 .call1(transcribe_args)?
-                .extract::<Vec<(i32, i32, f32, f32, String, f32, f32, f32, f32)>>()?;
+                .extract::<Vec<(
+                    i32,
+                    i32,
+                    f32,
+                    f32,
+                    String,
+                    f32,
+                    f32,
+                    f32,
+                    f32,
+                    Option<Vec<Word>>,
+                )>>()?;
             let mut segments = Vec::with_capacity(pysegments.len());
 
             for segment in pysegments {
@@ -123,6 +161,7 @@ impl WhisperTranscriber {
                     avg_logprob: segment.6,
                     compression_ratio: segment.7,
                     no_speech_prob: segment.8,
+                    words: segment.9,
                 });
             }
 
@@ -227,7 +266,18 @@ impl WhisperModel {
                 .getattr(py, "transcribe_audio")
                 .unwrap()
                 .call1(py, args)?
-                .extract::<Vec<(i32, i32, f32, f32, String, f32, f32, f32, f32)>>(py)?;
+                .extract::<Vec<(
+                    i32,
+                    i32,
+                    f32,
+                    f32,
+                    String,
+                    f32,
+                    f32,
+                    f32,
+                    f32,
+                    Option<Vec<Word>>,
+                )>>(py)?;
 
             let mut segments = Vec::with_capacity(pysegments.len());
 
@@ -242,6 +292,7 @@ impl WhisperModel {
                     avg_logprob: segment.6,
                     compression_ratio: segment.7,
                     no_speech_prob: segment.8,
+                    words: segment.9,
                 });
             }
 

@@ -6,7 +6,7 @@ use pyo3::ffi::c_str;
 use pyo3::{prelude::*, types::PyModule};
 use pyscripts::*;
 use std::ffi::CString;
-use std::{error::Error, ffi::CStr, fmt::Debug, i32};
+use std::{error::Error, fmt::Debug, i32};
 
 #[derive(Debug)]
 pub struct WhisperModel {

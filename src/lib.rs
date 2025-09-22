@@ -65,10 +65,9 @@ impl WhisperTranscriber {
 
     /// Transcribes audio at the given path using a single Python GIL session
     pub fn transcribe(&self, path: String) -> Result<Segments, Box<dyn Error>> {
-        Python::initialize();
         let script_code = get_script();
 
-        let segments = Python::with_gil(|py| {
+        let segments = Python::attach(|py| {
             let activators = PyModule::from_code(
                 py,
                 CString::new(script_code).unwrap().as_c_str(),
@@ -111,8 +110,8 @@ impl WhisperTranscriber {
                 .getattr("transcribe_audio")?
                 .call1(transcribe_args)?
                 .extract::<Vec<(i32, i32, f32, f32, String, f32, f32, f32, f32)>>()?;
+            let mut segments = Vec::with_capacity(pysegments.len());
 
-            let mut segments = Vec::new();
             for segment in pysegments {
                 segments.push(Segment {
                     id: segment.0,
@@ -229,7 +228,8 @@ impl WhisperModel {
                 .unwrap()
                 .call1(py, args)?
                 .extract::<Vec<(i32, i32, f32, f32, String, f32, f32, f32, f32)>>(py)?;
-            let mut segments = Vec::new();
+
+            let mut segments = Vec::with_capacity(pysegments.len());
 
             for segment in pysegments {
                 segments.push(Segment {

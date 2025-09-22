@@ -13,4 +13,4 @@ categories = ["science", "api-bindings"]
 
 [dependencies]
 derive_builder = "0.20.0"
-pyo3 = {version="0.26.0" }
+pyo3 = {version="0.26.0", features = ["auto-initialize"] }

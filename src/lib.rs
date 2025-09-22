@@ -51,7 +51,7 @@ impl Debug for Segments {
         f.write_str(&self.0)
     }
 }
-
+//Transcription
 impl WhisperTranscriber {
     /// Creates a new WhisperTranscriber with the given configuration
     pub fn new(model: String, device: String, compute_type: String, config: WhisperConfig) -> Self {

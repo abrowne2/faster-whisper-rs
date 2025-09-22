@@ -40,6 +40,7 @@ def transcribe_audio(
         initial_prompt= None if prompt == None else prompt,
         vad_filter=vad[0],
         vad_parameters=vad_par,
+        word_timestamps=True
     )
 
     segments = list(segments)
@@ -56,6 +57,7 @@ def transcribe_audio(
             segment.avg_logprob,
             segment.compression_ratio,
             segment.no_speech_prob,
+            segment.words,
         ))
 
     return s

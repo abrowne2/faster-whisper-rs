@@ -62,8 +62,9 @@ impl WhisperModel {
         compute_type: String,
         config: WhisperConfig,
     ) -> Result<Self, Box<dyn Error>> {
+        pyo3::prepare_freethreaded_python();
         let script_code = get_script();
-        let m = Python::attach(|py| {
+        let m = Python::with_gil(|py| {
             let activators = PyModule::from_code(
                 py,
                 CString::new(script_code).unwrap().as_c_str(),
@@ -96,7 +97,7 @@ impl WhisperModel {
     }
 
     pub fn transcribe(&self, path: String) -> Result<Segments, Box<dyn Error>> {
-        let segments = Python::attach(|py| {
+        let segments = Python::with_gil(|py| {
             let vad = (
                 self.config.vad.active,
                 self.config.vad.threshold,

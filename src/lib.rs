@@ -31,6 +31,15 @@ pub struct Segment {
 #[derive(Clone)]
 pub struct Segments(String, pub Vec<Segment>);
 
+/// Helper struct for model configuration and transcription
+#[derive(Debug)]
+pub struct WhisperTranscriber {
+    pub model: String,
+    pub device: String,
+    pub compute_type: String,
+    pub config: WhisperConfig,
+}
+
 impl ToString for Segments {
     fn to_string(&self) -> String {
         self.0.clone()
@@ -40,6 +49,100 @@ impl ToString for Segments {
 impl Debug for Segments {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.0)
+    }
+}
+
+impl WhisperTranscriber {
+    /// Creates a new WhisperTranscriber with the given configuration
+    pub fn new(model: String, device: String, compute_type: String, config: WhisperConfig) -> Self {
+        Self {
+            model,
+            device,
+            compute_type,
+            config,
+        }
+    }
+
+    /// Transcribes audio at the given path using a single Python GIL session
+    pub fn transcribe(&self, path: String) -> Result<Segments, Box<dyn Error>> {
+        Python::initialize();
+        let script_code = get_script();
+
+        let segments = Python::with_gil(|py| {
+            let activators = PyModule::from_code(
+                py,
+                CString::new(script_code).unwrap().as_c_str(),
+                c_str!("whisper.py"),
+                c_str!("Whisper"),
+            )
+            .expect("should have activators");
+
+            let args = (
+                self.model.clone(),
+                self.device.clone(),
+                self.compute_type.clone(),
+            );
+            let model = activators.getattr("new_model")?.call1(args)?;
+
+            let vad = (
+                self.config.vad.active,
+                self.config.vad.threshold,
+                self.config.vad.min_speech_duration,
+                Self::convert(self.config.vad.max_speech_duration),
+                self.config.vad.min_silence_duration,
+                self.config.vad.padding_duration,
+            );
+
+            let transcribe_args = (
+                model,
+                path,
+                Self::convert(self.config.starting_prompt.clone()),
+                Self::convert(self.config.prefix.clone()),
+                Self::convert(self.config.language.clone()),
+                self.config.beam_size,
+                self.config.best_of,
+                self.config.patience,
+                self.config.length_penalty,
+                Self::convert(self.config.chunk_length.clone()),
+                vad,
+            );
+
+            let pysegments = activators
+                .getattr("transcribe_audio")?
+                .call1(transcribe_args)?
+                .extract::<Vec<(i32, i32, f32, f32, String, f32, f32, f32, f32)>>()?;
+
+            let mut segments = Vec::new();
+            for segment in pysegments {
+                segments.push(Segment {
+                    id: segment.0,
+                    seek: segment.1,
+                    start: segment.2,
+                    end: segment.3,
+                    text: segment.4,
+                    temperature: segment.5,
+                    avg_logprob: segment.6,
+                    compression_ratio: segment.7,
+                    no_speech_prob: segment.8,
+                });
+            }
+
+            Ok::<Vec<Segment>, Box<dyn Error>>(segments)
+        })?;
+
+        let mut text = String::new();
+        for segment in &segments {
+            text.push_str(&segment.text);
+        }
+
+        Ok(Segments(text, segments))
+    }
+
+    fn convert<T: ToString>(value: Option<T>) -> String {
+        match value {
+            Some(x) => x.to_string(),
+            None => "None".to_string(),
+        }
     }
 }
 
@@ -62,7 +165,6 @@ impl WhisperModel {
         compute_type: String,
         config: WhisperConfig,
     ) -> Result<Self, Box<dyn Error>> {
-        pyo3::prepare_freethreaded_python();
         let script_code = get_script();
         let m = Python::with_gil(|py| {
             let activators = PyModule::from_code(
@@ -160,6 +262,20 @@ impl WhisperModel {
 fn create_test() {
     let fw = WhisperModel::default();
     let trans = fw.transcribe(get_path("./man.mp3".to_string())).unwrap();
+    assert!(!trans.0.is_empty());
+}
+
+#[test]
+fn transcriber_test() {
+    let transcriber = WhisperTranscriber::new(
+        "base.en".to_string(),
+        "cpu".to_string(),
+        "int8".to_string(),
+        WhisperConfig::default(),
+    );
+    let trans = transcriber
+        .transcribe(get_path("./man.mp3".to_string()))
+        .unwrap();
     assert!(!trans.0.is_empty());
 }
 

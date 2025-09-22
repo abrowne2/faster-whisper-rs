@@ -47,7 +47,7 @@ impl Default for WhisperModel {
     fn default() -> Self {
         return Self::new(
             "base.en".to_string(),
-            "metal".to_string(),
+            "cpu".to_string(),
             "int8".to_string(),
             WhisperConfig::default(),
         )

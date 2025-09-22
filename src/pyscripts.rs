@@ -40,7 +40,6 @@ def transcribe_audio(
         initial_prompt= None if prompt == None else prompt,
         vad_filter=vad[0],
         vad_parameters=vad_par,
-        batch_size = 8
     )
 
     segments = list(segments)
